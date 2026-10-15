@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全职岗位「培训福利」现状与趋势分析</title>
+<meta name="description" content="基于全职岗位招聘数据的聚合统计：培训福利标注率的时间趋势，以及有培训岗位在职位、城市、薪资、学历、经验、企业规模、行业、技能与岗位描述上的特征。">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">招聘数据洞察 · 福利标签专题</div>
+    <h1>全职岗位「培训福利」的现状与趋势</h1>
+    <p class="lede">
+      以招聘信息中的 <b>岗位福利</b> 标签为切入点，观察有多少全职岗位把「培训」写进福利、
+      这一比例随时间如何变化，以及提供培训的岗位集中在哪些职位、城市、行业，薪资与技能门槛又有何不同。
+    </p>
+    <div class="chips" id="heroChips"></div>
+    <div class="notice">
+      <b>数据合规：</b>本页全部为<b>聚合统计结果</b>，仅展示维度合计与比例；不含任何原始岗位记录、企业名称、岗位描述原文或可回溯到单条招聘信息的内容。
+      所有比率的最小统计样本为 <b id="minN">30</b> 条岗位，样本不足的组合不予展示。
+    </div>
+  </div>
+</header>
+
+<nav class="topnav">
+  <div class="wrap">
+    <a href="#overview">核心结论</a>
+    <a href="#trend">时间趋势</a>
+    <a href="#profile">结构画像</a>
+    <a href="#pay">薪酬与技能</a>
+    <a href="#benefit">福利联动</a>
+    <a href="#desc">岗位描述</a>
+    <a href="#cross">交叉视角</a>
+    <a href="#method">方法与合规</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============ 核心结论 ============ -->
+  <section id="overview">
+    <h2>核心结论</h2>
+    <div class="kpis" id="kpis"></div>
+    <div class="cards" id="headlines"></div>
+  </section>
+
+  <!-- ============ 时间趋势 ============ -->
+  <section id="trend">
+    <h2>一、有培训福利岗位的占比趋势</h2>
+    <p class="sub">按岗位发布时间逐月统计。折线为「培训福利标注率」，柱形为当月岗位量，用于判断趋势是否受招聘淡旺季影响。</p>
+    <div class="panel">
+      <div class="panel-tools">
+        <div class="seg" id="trendSeg" role="tablist">
+          <button class="on" data-k="all">全部岗位</button>
+          <button data-k="macro">按职位大类</button>
+          <button data-k="tier">按城市等级</button>
+        </div>
+        <span class="hint" id="trendHint"></span>
+      </div>
+      <div class="chart" id="chartTrend"></div>
+    </div>
+  </section>
+
+  <!-- ============ 结构画像 ============ -->
+  <section id="profile">
+    <h2>二、哪些岗位更可能提供培训</h2>
+    <p class="sub">切换不同维度，比较各细分人群的「培训福利标注率」；也可切换为「培训岗位构成」，看培训岗位的存量更集中在哪一类。</p>
+    <div class="panel">
+      <div class="panel-tools">
+        <div class="seg" id="dimSeg" role="tablist"></div>
+        <div class="seg" id="metricSeg" role="tablist">
+          <button class="on" data-k="rate">培训率</button>
+          <button data-k="share">培训岗位构成</button>
+        </div>
+      </div>
+      <div class="chart tall" id="chartDim"></div>
+      <div class="hint" id="dimHint"></div>
+    </div>
+  </section>
+
+  <!-- ============ 薪酬与技能 ============ -->
+  <section id="pay">
+    <h2>三、薪酬与技能门槛：有培训 = 更低薪、更少技能吗</h2>
+    <p class="sub">左：各职位大类的薪资中位数对比（控制职位结构）。右：技能标签数量分布对比。下方：高频技能标签在两类岗位中的出现率。</p>
+    <div class="grid2">
+      <div class="panel">
+        <h3>各职位大类 中位月薪对比</h3>
+        <div class="chart tall" id="chartPayMacro"></div>
+      </div>
+      <div class="panel">
+        <h3>技能标签数量分布</h3>
+        <div class="chart" id="chartSkillCount"></div>
+        <div class="chart tall" id="chartSkillTop"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>薪资分档下的培训率</h3>
+      <div class="chart" id="chartSalBand"></div>
+      <div class="hint" id="salHint"></div>
+    </div>
+  </section>
+
+  <!-- ============ 福利联动 ============ -->
+  <section id="benefit">
+    <h2>四、培训福利与其他福利的关系</h2>
+    <p class="sub">同一份岗位福利标签里，标注培训的岗位是否更少（或更多）标注五险一金、双休、住宿等其它福利？
+      这里必须做一个控制：非培训岗位中有相当比例根本没有填写任何福利标签，这会让它们的「其它福利出现率」被系统性压低。
+      因此除两类岗位整体对比外，另给出「非培训岗位中已填写福利标签者」的对照口径。</p>
+    <div class="panel">
+      <div class="chart" id="chartBenefit"></div>
+      <div class="hint" id="benefitHint"></div>
+    </div>
+    <div class="panel">
+      <h3>培训岗位最常同时出现的福利标签</h3>
+      <div class="chart tall" id="chartTrainTags"></div>
+      <div class="hint" id="tagHint"></div>
+    </div>
+  </section>
+
+  <!-- ============ 岗位描述 ============ -->
+  <section id="desc">
+    <h2>五、岗位描述透露的专业信息</h2>
+    <p class="sub">关键词命中率对比：培训岗位的工作内容与要求，更像哪一类工作？差值越大，说明该特征越能区分两类岗位。</p>
+    <div class="panel">
+      <div class="chart tall" id="chartDesc"></div>
+      <div class="hint" id="descHint"></div>
+    </div>
+  </section>
+
+  <!-- ============ 交叉视角 ============ -->
+  <section id="cross">
+    <h2>六、交叉视角</h2>
+    <p class="sub">学历 × 经验 矩阵中的培训率（颜色越深表示培训率越高），以及各职位大类培训率的逐月变化。</p>
+    <div class="grid2">
+      <div class="panel">
+        <h3>学历 × 经验</h3>
+        <div class="chart tall" id="chartHeat"></div>
+      </div>
+      <div class="panel">
+        <h3>职位大类培训率趋势</h3>
+        <div class="chart tall" id="chartMacroTrend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 方法与合规 ============ -->
+  <section id="method">
+    <h2>七、口径、方法与合规说明</h2>
+    <div class="method">
+      <div class="method-col">
+        <h3>数据与字段</h3>
+        <ul id="methodData"></ul>
+      </div>
+      <div class="method-col">
+        <h3>统计口径</h3>
+        <ul id="methodRules"></ul>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>培训类福利标签的原始写法（Top）</h3>
+      <div class="tagcloud" id="tagList"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div id="footInfo"></div>
+    <div class="fine">
+      本站为静态页面，托管于 GitHub Pages。页面不含原始数据文件；全部图表由预先计算的聚合统计量渲染。
+    </div>
+  </div>
+</footer>
+
+<script src="data/stats.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
