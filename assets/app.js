@@ -309,13 +309,13 @@
   var TIERO = ["一线城市", "新一线城市", "二线城市", "其他城市"];
 
   var DIMS = [
-    { k: "macro", name: "职位大类", rows: function () { return S.macro; }, labelW: 132 },
-    { k: "cat", name: "细分职位", rows: function () { return S.cat.slice(0, 18); }, labelW: 132,
-      note: "按岗位量取前 18 个细分职位。" },
-    { k: "city", name: "城市", rows: function () { return S.city.slice(0, 18); }, labelW: 96,
-      note: "按岗位量取前 18 个城市。" },
-    { k: "ind", name: "行业", rows: function () { return S.ind.slice(0, 18); }, labelW: 132,
-      note: "行业为多值字段，一条岗位可计入多个行业。" },
+    { k: "macro", name: "职位大类", rows: function () { return S.macro; }, labelW: 132, rank: true },
+    { k: "cat", name: "细分职业", rows: function () { return S.cat; }, labelW: 132, rank: true,
+      note: "细分职业共 " + S.cat.length + " 类。" },
+    { k: "city", name: "城市", rows: function () { return S.city; }, labelW: 96, rank: true,
+      note: "城市共 " + S.city.length + " 个。" },
+    { k: "ind", name: "行业", rows: function () { return S.ind; }, labelW: 132, rank: true,
+      note: "行业为多值字段，一条岗位可计入多个行业，共 " + S.ind.length + " 个。" },
     { k: "tier", name: "城市等级", rows: function () { return orderBy(S.tier, TIERO); }, labelW: 110 },
     { k: "edu", name: "学历", rows: function () { return orderBy(S.edu, EDU.concat(["MBA/EMBA", "EMBA", "中技", "其他"])); }, labelW: 110 },
     { k: "exp", name: "经验", rows: function () { return orderBy(S.exp, EXP); }, labelW: 110 },
@@ -323,19 +323,39 @@
     { k: "salband", name: "薪资档", rows: function () { return orderBy(S.salband, SALB); }, labelW: 96 },
     { k: "skillcnt", name: "技能标签数", rows: function () { return orderBy(S.skillcnt, SKC); }, labelW: 110 }
   ];
-  var dimState = { k: "macro", metric: "rate" };
+  var dimState = { k: "macro", metric: "rate", order: "rank", minN: 100 };
+  var TOPN = 20;
 
   function renderDim() {
     var d = DIMS.filter(function (x) { return x.k === dimState.k; })[0];
-    var rows = d.rows().map(function (r) {
+    var all = d.rows().map(function (r) {
       return { label: r.k, k: r.k, n: r.n, t: r.t, rate: rate(r), share: share(r) };
     });
+    var rows = all.filter(function (r) { return r.n >= dimState.minN; });
+    var mode = "";
+    if (dimState.metric === "share") {
+      rows.sort(function (a, b) { return b.t - a.t; });
+      mode = "按培训岗位数（培训岗位构成）排序";
+    } else if (d.rank && dimState.order === "rank") {
+      rows.sort(function (a, b) { return (b.rate === null ? -1 : b.rate) - (a.rate === null ? -1 : a.rate); });
+      mode = "按培训率从高到低排序";
+    } else if (d.rank && dimState.order === "rankdesc") {
+      rows.sort(function (a, b) { return (a.rate === null ? 9 : a.rate) - (b.rate === null ? 9 : b.rate); });
+      mode = "按培训率从低到高排序";
+    } else {
+      rows.sort(function (a, b) { return b.n - a.n; });
+      mode = d.rank ? "按岗位量排序" : "按业务顺序排列";
+    }
+    var qualified = rows.length;
+    rows = rows.slice(0, TOPN);
     bars(el("chartDim"), rows, { metric: dimState.metric, labelW: d.labelW,
       ref: dimState.metric === "rate" ? ALL : null,
-      minN: dimState.metric === "rate" ? LIST_MIN_N : MIN_N });
+      minN: dimState.metric === "rate" ? Math.min(dimState.minN, MIN_N) : MIN_N });
     el("dimHint").textContent = (d.note ? d.note + " " : "") +
-      "样本量门槛：" + (dimState.metric === "rate" ? LIST_MIN_N + " 条" : MIN_N + " 条") +
-      "。悬停可见样本量与培训岗位数。";
+      "当前口径：" + mode + "，样本量门槛 ≥ " + fmtN(dimState.minN) + " 条，符合门槛的类别共 " +
+      fmtN(qualified) + " 个，展示前 " + Math.min(TOPN, rows.length) + " 个。" +
+      (d.rank ? "" : "（该维度按业务顺序排列，排序按钮对其无效。）") +
+      " 悬停可见样本量与培训岗位数。";
   }
 
   /* ================= 各区块渲染 ================= */
@@ -377,7 +397,7 @@
     kpis();
     renderDim();
     renderTrend("all");
-    renderPay(); renderBenefit(); renderDesc(); renderCross(); renderMethod();
+    renderPay(); renderBenefit(); renderSkillFam(); renderDesc(); renderCross(); renderMethod();
   }
 
   /* 控件只绑定一次，避免 resize 重复渲染时叠加监听 */
@@ -394,6 +414,8 @@
     }
     seg("dimSeg", function (k) { dimState.k = k; renderDim(); });
     seg("metricSeg", function (k) { dimState.metric = k; renderDim(); });
+    seg("orderSeg", function (k) { dimState.order = k; renderDim(); });
+    seg("minSeg", function (k) { dimState.minN = parseInt(k, 10); renderDim(); });
     seg("trendSeg", function (k) { renderTrend(k); });
   }
 
@@ -448,14 +470,6 @@
                tip: { a: r.t, b: r.n - r.t } };
     }), { labelW: 74, rowH: 34 });
 
-    var top = S.skill.top_all.slice(0, 14).map(function (p) {
-      var tag = p[0], nAll = p[1];
-      var nT = 0;
-      S.skill.top_train.forEach(function (q) { if (q[0] === tag) nT = q[1]; });
-      return { label: tag, a: nT / T, b: (nAll - nT) / NT, tip: { a: nT, b: nAll - nT } };
-    });
-    pairedBars(el("chartSkillTop"), top, { labelW: 118, rowH: 34 });
-
     var rows = orderBy(S.salband, SALB).map(function (r) {
       return { label: r.k, k: r.k, n: r.n, t: r.t, rate: rate(r), share: share(r) };
     });
@@ -465,6 +479,46 @@
   }
 
   /* ================= 福利联动 ================= */
+  /* 技能类型：培训会与什么技能同时出现 */
+  function renderSkillFam() {
+    var fam = (S.skillfam || []).map(function (r) {
+      return { label: r.k.replace("（出现在技能字段）", ""), k: r.k, n: r.n, t: r.t, rate: rate(r),
+               a: r.t / T, b: (r.n - r.t) / NT, tip: { a: r.t, b: r.n - r.t },
+               tags: (r.top_tags || []).map(function (p) { return p[0]; }) };
+    }).filter(function (r) { return r.n >= 1000; });
+    if (!fam.length) {
+      ["chartSkillFam", "chartTrainFam", "chartSkillTop"].forEach(function (id) {
+        el(id).innerHTML = '<div class="hint">技能类型统计尚未生成。</div>'; });
+      el("skillFamHint").textContent = "技能类型统计尚未生成。";
+      return;
+    }
+    fam.sort(function (x, y) { return (y.a - y.b) - (x.a - x.b); });
+    dumbbell(el("chartSkillFam"), fam, { labelW: 146, rowH: 30 });
+
+    var train1 = fam.slice().sort(function (x, y) { return y.t - x.t; });
+    bars(el("chartTrainFam"), train1.map(function (r) {
+      return { label: r.label, k: r.k, n: r.n, t: r.t, rate: r.rate, share: r.t / T,
+               sub: "示例标签：" + r.tags.slice(0, 5).join("、") };
+    }), { metric: "share", labelW: 146, minN: 1000 });
+
+    var top = S.skill.top_all.slice(0, 14).map(function (p) {
+      var tag = p[0], nAll = p[1], nT = 0;
+      S.skill.top_train.forEach(function (q) { if (q[0] === tag) nT = q[1]; });
+      return { label: tag, a: nT / T, b: (nAll - nT) / NT, tip: { a: nT, b: nAll - nT } };
+    });
+    pairedBars(el("chartSkillTop"), top, { labelW: 118, rowH: 34 });
+
+    var up = fam[0], down = fam[fam.length - 1];
+    var mid = fam.filter(function (r) { return r.k.indexOf("福利待遇") >= 0; })[0];
+    el("skillFamHint").textContent =
+      "与培训最同向的技能类型是「" + up.label + "」（培训岗位 " + pct(up.a) + " vs 非培训 " + pct(up.b) + "）、" +
+      "最反向的是「" + down.label + "」（" + pct(down.a) + " vs " + pct(down.b) + "）。" +
+      "技能标签字段在两类岗位中的填写率接近（96%~97%），差异不是填写率造成的。" +
+      "另需注意：技能标签字段里混有大量行业/领域类与福利类标签" +
+      (mid ? "（「" + mid.label + "」在培训岗位中的出现率达 " + pct(mid.a) + "）" : "") +
+      "，归类为规则匹配，详情见方法说明。";
+  }
+
   function renderBenefit() {
     var nonEmptyNT = NT * (1 - (M.benefit_empty_share_nontrain || 0));
     var items = S.benefit.other_keys.map(function (o) {
@@ -492,16 +546,54 @@
   }
 
   /* ================= 岗位描述 ================= */
+  function descItems(cat) {
+    var rename = { "形象与年龄等硬性条件": "形象/年龄等条件提及" };
+    return S.desc.filter(function (d) { return d.cat === cat; }).map(function (d) {
+      return { label: rename[d.name] || d.name, a: d.n_train / T, b: (d.n_all - d.n_train) / NT,
+               tip: { a: d.n_train, b: d.n_all - d.n_train },
+               diff: d.n_train / T - (d.n_all - d.n_train) / NT };
+    }).filter(function (d) { return d.tip.a >= MIN_N && d.tip.b >= MIN_N; })
+      .sort(function (x, y) { return y.diff - x.diff; });
+  }
+  function pick(items, name) {
+    return items.filter(function (x) { return x.label === name; })[0];
+  }
+
   function renderDesc() {
-    var items = S.desc.map(function (d) {
-      return { label: d.name, a: d.n_train / T, b: (d.n_all - d.n_train) / NT,
-               tip: { a: d.n_train, b: d.n_all - d.n_train }, diff: d.n_train / T - (d.n_all - d.n_train) / NT };
-    }).filter(function (d) { return d.tip.a >= MIN_N && d.tip.b >= MIN_N; });
-    items.sort(function (x, y) { return y.diff - x.diff; });
-    pairedBars(el("chartDesc"), items, { labelW: 104, rowH: 38 });
-    var d0 = items[0], d1 = items[items.length - 1];
-    el("descHint").textContent = "差值最大的正向特征：" + d0.label + "（" + pct(d0.a) + " vs " + pct(d0.b) +
-      "）；最反向的特征：" + d1.label + "（" + pct(d1.a) + " vs " + pct(d1.b) + "）。";
+    var soft = descItems("软技能与任职要求");
+    if (!soft.length) {
+      ["chartDescSoft", "chartDescProf", "chartDescCond"].forEach(function (id) {
+        el(id).innerHTML = '<div class="hint">岗位描述关键词分组尚未生成。</div>'; });
+      return;
+    }
+    pairedBars(el("chartDescSoft"), soft, { labelW: 134, rowH: 36 });
+    var learn = pick(soft, "学习能力"), serve = pick(soft, "服务意识"), worst = soft[soft.length - 1];
+    el("descSoftHint").textContent = "回答第一个问题：「学习能力」在培训岗位的岗位描述中出现 " +
+      (learn ? pct(learn.a) + "、非培训岗位 " + pct(learn.b) + "（相差 " +
+               ((learn.a - learn.b) * 100).toFixed(1) + " 个百分点）" : "样本不足") +
+      "；正向差值最大的是「" + soft[0].label + "」（" + pct(soft[0].a) + " vs " + pct(soft[0].b) + "）" +
+      (serve && serve !== soft[0] ? "，「服务意识」" + pct(serve.a) + " vs " + pct(serve.b) : "") +
+      "；唯一的负向项是「" + worst.label + "」（" + pct(worst.a) + " vs " + pct(worst.b) + "）。" +
+      "整体看：有培训的岗位更强调学习能力、服务意识、主动性与稳定性，而更少强调逻辑分析、团队协作与组织管理。" +
+      "注：「形象/年龄等条件提及」统计的是形象、年龄、身高、身体条件等词的提及率（含「年龄不限」这类写法），符号方向需谨慎解读。";
+
+    var prof = descItems("专业与硬技能信息");
+    pairedBars(el("chartDescProf"), prof, { labelW: 134, rowH: 36 });
+    var open = pick(prof, "跨专业口径"), match = pick(prof, "相关/对口专业"), field = pick(prof, "特定专业背景");
+    el("descProfHint").textContent = "回答第二个问题：培训岗位更常出现「专业不限 / 不限专业」的写法——" +
+      (open ? pct(open.a) + " vs " + pct(open.b) : "样本不足") +
+      "；同时更少要求「相关 / 对口专业」——" + (match ? pct(match.a) + " vs " + pct(match.b) : "样本不足") +
+      "，也更少点名特定专业背景——" + (field ? pct(field.a) + " vs " + pct(field.b) : "样本不足") +
+      "。也就是说：有培训的岗位更符合「专业门槛宽松、靠培训补足技能」的用人逻辑，" +
+      "而不是「先专业对口、再上岗」。";
+
+    var cond = descItems("工作条件与福利话术");
+    pairedBars(el("chartDescCond"), cond, { labelW: 134, rowH: 36 });
+    var tt = pick(cond, "提成奖金");
+    el("descCondHint").textContent = "这一组只用于解释：岗位描述正文里经常把福利待遇一起写进去，" +
+      "所以会数出「提成奖金」「双休与假期」这类词（提成奖金 " +
+      (tt ? pct(tt.a) + " vs " + pct(tt.b) : "-") + "）。" +
+      "它们与第四节「标注培训的岗位福利标签填得更满」是同一现象，不应作为任职要求来解读。";
   }
 
   /* ================= 交叉 ================= */
@@ -558,7 +650,18 @@
     var ins = insMap["五险一金类"], lv = insMap["带薪休假"];
     var eduMap = {}; S.edu.forEach(function (r) { eduMap[r.k] = r; });
     var expMap = {}; S.exp.forEach(function (r) { expMap[r.k] = r; });
-    var skT = S.skillcnt.reduce(function (s, r) { return s + r.t; }, 0);
+    var descMap = {}; S.desc.forEach(function (d) { descMap[d.name] = d; });
+    function dshare(name) {
+      var d = descMap[name];
+      if (!d) return null;
+      return { a: d.n_train / T, b: (d.n_all - d.n_train) / NT };
+    }
+    var famList = (S.skillfam || []).filter(function (r) { return r.n >= 1000; })
+      .map(function (r) {
+        return { label: r.k.replace("（出现在技能字段）", ""), a: r.t / T, b: (r.n - r.t) / NT };
+      }).sort(function (x, y) { return (y.a - y.b) - (x.a - x.b); });
+    var learnCap = dshare("学习能力"), svc = dshare("服务意识");
+    var openSpec = dshare("跨专业口径"), fitSpec = dshare("相关/对口专业");
 
     var insNT = (ins.n_all - ins.n_train) / NT, lvNT = (lv.n_all - lv.n_train) / NT;
     var top3Share = S.macro.slice(0, 3).reduce(function (s, r) { return s + r.t; }, 0) / T;
@@ -625,6 +728,20 @@
        "但这组对比需要修正口径：非培训岗位有 " + pct(M.benefit_empty_share_nontrain || 0) +
        " 完全没填福利标签，培训岗位则全部填写（平均 " + (M.benefit_tags_avg_train || 0).toFixed(2) +
        " vs " + (M.benefit_tags_avg_nontrain || 0).toFixed(2) + " 个）。改用「非培训岗位中已填写福利标签者」对照后差距明显收窄，但仍以培训岗位更高——培训并未挤占其它福利。"],
+      ["技能类型：培训与「教育/服务/销售」类技能同向，与硬技能反向",
+       "把技能标签归为 20 类后，与培训最同向的是" +
+       famList.slice(0, 3).map(function (r) { return r.label + "（" + pct(r.a) + " vs " + pct(r.b) + "）"; }).join("、") +
+       "；最反向的是" +
+       famList.slice(-3).reverse().map(function (r) { return r.label + "（" + pct(r.a) + " vs " + pct(r.b) + "）"; }).join("、") +
+       "。即：培训标签更多与「靠服务与沟通上手」的技能同时出现，而与财务、机械、软件等专业硬技能的岗位呈负相关。"],
+      ["软技能与专业口径：更看重学习能力，也更少限定专业",
+       "培训岗位的岗位描述更常提到" +
+       (learnCap ? "「学习能力」（" + pct(learnCap.a) + " vs " + pct(learnCap.b) + "）" : "软技能") +
+       (svc ? "、「服务意识」（" + pct(svc.a) + " vs " + pct(svc.b) + "）" : "") +
+       "；专业口径上更常写" +
+       (openSpec ? "「专业不限/不限专业」（" + pct(openSpec.a) + " vs " + pct(openSpec.b) + "）" : "「专业不限」") +
+       (fitSpec ? "，同时更少要求「相关/对口专业」（" + pct(fitSpec.a) + " vs " + pct(fitSpec.b) + "）" : "") +
+       "。有培训的岗位更像「专业门槛宽松、靠培训补足技能」的用人逻辑。"],
       ["口径与局限（阅读前提）",
        "「培训岗位」＝福利标签中出现「培训」字样的岗位；全部结论为描述性统计，未做结构分解或因果推断。" +
        "福利标签的填写完整度、行业与职位结构都会影响标注率，小样本维度（如「无经验」「初中及以下」）的比率波动更大，页面已对样本量设下限。"]
@@ -644,7 +761,10 @@
       "<b>培训岗位</b>定义：岗位福利标签中包含「培训」字样的标签（如带薪培训、专业培训、免费培训、组织培训、教育培训、免费培训上岗等）。",
       "广义口径（带教、师带徒、学徒、培养、进修）仅作参考，单独统计为 <b>" + fmtN(M.broad_extra) + "</b> 条。",
       "薪资：取薪资区间中位数（如 5000-8000 元计 6500 元）；「面议」与时薪岗位不计入薪资统计，13 薪不折算。",
-      "比率展示门槛：样本量 ≥ <b>" + MIN_N + "</b> 条；列表类维度（维度值本身）另设 ≥ <b>" + LIST_MIN_N + "</b> 条的门槛。",
+      "比率展示门槛：默认样本量 ≥ <b>100</b> 条（页面可切换 500 / 1000）；在线图中，单点样本量 <b>" + MIN_N + "</b> 条以下的比率不展示。",
+      "岗位描述关键词共 <b>" + S.desc.length + "</b> 组，全部为对描述正文的规则匹配，并分为软技能、专业与硬技能、工作条件与福利话术三类；" +
+      "第三类（提成奖金、双休等）之所以出现，是因为描述正文常把福利待遇一并写入，不应作为任职要求解读。",
+      "技能标签按规则归为 <b>20</b> 类技能类型（含「其他技能标签」）；该字段本身混有行业/领域类标签与福利类标签，因此类型归并是启发式的，页面同时给出高频标签便于核对。",
       "结果均为描述性统计，不代表因果关系：福利标签的填写完整度、行业与职位结构都会影响标注率；页面未做结构分解或回归控制。",
       "本页所有内容基于全量数据的聚合结果，不含任何原始记录、企业名称、岗位描述原文或可反查的单一岗位信息。"
     ].map(function (x) { return "<li>" + x + "</li>"; }).join("");
@@ -671,3 +791,4 @@
   });
   init();
 })();
+

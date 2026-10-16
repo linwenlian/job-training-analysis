@@ -30,8 +30,9 @@
     <a href="#overview">核心结论</a>
     <a href="#trend">时间趋势</a>
     <a href="#profile">结构画像</a>
-    <a href="#pay">薪酬与技能</a>
+    <a href="#pay">薪酬与技能门槛</a>
     <a href="#benefit">福利联动</a>
+    <a href="#skillfam">技能类型</a>
     <a href="#desc">岗位描述</a>
     <a href="#cross">交叉视角</a>
     <a href="#method">方法与合规</a>
@@ -67,13 +68,24 @@
   <!-- ============ 结构画像 ============ -->
   <section id="profile">
     <h2>二、哪些岗位更可能提供培训</h2>
-    <p class="sub">切换不同维度，比较各细分人群的「培训福利标注率」；也可切换为「培训岗位构成」，看培训岗位的存量更集中在哪一类。</p>
+    <p class="sub">切换维度，比较各细分人群的「培训福利标注率」。职业大类、细分职业、城市、行业四个维度可选「按培训率排序」，
+      直接看培训率最高的 20 类与最低的 20 类；其余维度按业务顺序排列。也可切换为「培训岗位构成」，看培训岗位的存量集中在哪一类。</p>
     <div class="panel">
       <div class="panel-tools">
         <div class="seg" id="dimSeg" role="tablist"></div>
         <div class="seg" id="metricSeg" role="tablist">
           <button class="on" data-k="rate">培训率</button>
           <button data-k="share">培训岗位构成</button>
+        </div>
+        <div class="seg" id="orderSeg" role="tablist">
+          <button class="on" data-k="rank">前 20</button>
+          <button data-k="rankdesc">后 20</button>
+          <button data-k="volume">按岗位量</button>
+        </div>
+        <div class="seg" id="minSeg" role="tablist">
+          <button class="on" data-k="100">样本≥100</button>
+          <button data-k="500">≥500</button>
+          <button data-k="1000">≥1000</button>
         </div>
       </div>
       <div class="chart tall" id="chartDim"></div>
@@ -84,16 +96,15 @@
   <!-- ============ 薪酬与技能 ============ -->
   <section id="pay">
     <h2>三、薪酬与技能门槛：有培训 = 更低薪、更少技能吗</h2>
-    <p class="sub">左：各职位大类的薪资中位数对比（控制职位结构）。右：技能标签数量分布对比。下方：高频技能标签在两类岗位中的出现率。</p>
+    <p class="sub">左：各职位大类的薪资中位数对比（控制职位结构）。右：技能标签数量分布对比。下方：薪资分档下的培训率。</p>
     <div class="grid2">
       <div class="panel">
         <h3>各职位大类 中位月薪对比</h3>
         <div class="chart tall" id="chartPayMacro"></div>
       </div>
       <div class="panel">
-        <h3>技能标签数量分布</h3>
+        <h3>技能标签数量分布（两类岗位内部占比）</h3>
         <div class="chart" id="chartSkillCount"></div>
-        <div class="chart tall" id="chartSkillTop"></div>
       </div>
     </div>
     <div class="panel">
@@ -121,18 +132,55 @@
   </section>
 
   <!-- ============ 岗位描述 ============ -->
-  <section id="desc">
-    <h2>五、岗位描述透露的专业信息</h2>
-    <p class="sub">关键词命中率对比：培训岗位的工作内容与要求，更像哪一类工作？差值越大，说明该特征越能区分两类岗位。</p>
+  <section id="skillfam">
+    <h2>五、培训会和什么类型的技能一起出现</h2>
+    <p class="sub">把技能标签按规则归为 20 类技能类型，比较每一类出现在「培训岗位」与「非培训岗位」中的比例，并看培训岗位的技能类型构成。
+      由于技能标签字段在两类岗位中的填写率接近（96%~97%），这里的对比不需要像福利标签那样做填写率修正。</p>
     <div class="panel">
-      <div class="chart tall" id="chartDesc"></div>
-      <div class="hint" id="descHint"></div>
+      <h3>各技能类型在两类岗位中的出现率</h3>
+      <div class="chart tall" id="chartSkillFam"></div>
+      <div class="hint" id="skillFamHint"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>培训岗位的技能类型构成</h3>
+        <div class="chart tall" id="chartTrainFam"></div>
+      </div>
+      <div class="panel">
+        <h3>高频技能标签：两类岗位出现率对比</h3>
+        <div class="chart tall" id="chartSkillTop"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 岗位描述 ============ -->
+  <section id="desc">
+    <h2>六、岗位描述里的任职要求：软技能与专业信息</h2>
+    <div class="notice">
+      <b>先说明这张图的口径：</b>关键词是对<b>岗位描述正文</b>做的规则匹配，而描述正文里既写任职要求，也常年混着福利与待遇话术
+      （「提成奖金」「双休」「晋升空间」就是从描述正文里数出来的词，不是福利标签字段）。所以下面把它拆成三组：
+      <b>软技能与任职要求</b>、<b>专业与硬技能信息</b>、<b>工作条件与福利话术</b>——只有前两组才是「任职要求」的差异，第三组用来解释为什么会出现看起来像福利的词。
+    </div>
+    <div class="panel">
+      <h3>6.1 软技能与任职要求（培训岗位 vs 非培训岗位）</h3>
+      <div class="chart tall" id="chartDescSoft"></div>
+      <div class="hint" id="descSoftHint"></div>
+    </div>
+    <div class="panel">
+      <h3>6.2 专业与硬技能信息</h3>
+      <div class="chart tall" id="chartDescProf"></div>
+      <div class="hint" id="descProfHint"></div>
+    </div>
+    <div class="panel">
+      <h3>6.3 工作条件与福利话术（出现在描述正文中的原因）</h3>
+      <div class="chart tall" id="chartDescCond"></div>
+      <div class="hint" id="descCondHint"></div>
     </div>
   </section>
 
   <!-- ============ 交叉视角 ============ -->
   <section id="cross">
-    <h2>六、交叉视角</h2>
+    <h2>七、交叉视角</h2>
     <p class="sub">学历 × 经验 矩阵中的培训率（颜色越深表示培训率越高），以及各职位大类培训率的逐月变化。</p>
     <div class="grid2">
       <div class="panel">
@@ -148,7 +196,7 @@
 
   <!-- ============ 方法与合规 ============ -->
   <section id="method">
-    <h2>七、口径、方法与合规说明</h2>
+    <h2>八、口径、方法与合规说明</h2>
     <div class="method">
       <div class="method-col">
         <h3>数据与字段</h3>
